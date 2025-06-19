@@ -1,3 +1,9 @@
+mod line;
+mod set;
+mod cache;
+mod simulator;
+
 fn main() {
-    println!("Hello, world!");
+
+    simulator::run_basic_test();
 }
