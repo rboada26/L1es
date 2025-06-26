@@ -28,7 +28,7 @@ impl CacheConfig {
             cache_type: CacheType::DirectMapped,
             total_size,
             line_size,
-            replacement_policy: ReplacementPolicy:LRU,
+            replacement_policy: ReplacementPolicy::LRU,
             name: format!("Direct Mapped {}KB, {}-byte lines", total_size / 1024, line_size),
         }
     }

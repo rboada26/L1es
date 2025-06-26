@@ -1,18 +1,21 @@
 // src/set.rs
 
 use crate::line::CacheLine;
+use crate::cache_config::ReplacementPolicy;
 
 pub struct CacheSet {
     pub lines: Vec<CacheLine>,
-    pub associativity: usize,    // Number of lines in this set (e.g., 8-way)
-    pub access_count: u64,       // Total accesses to this set
-    pub hit_count: u64,          // Cache hits in this set
-    pub miss_count: u64,         // Cache misses in this set
+    pub associativity: usize,        // Number of lines in this set (e.g., 8-way)
+    pub access_count: u64,           // Total accesses to this set
+    pub hit_count: u64,              // Cache hits in this set
+    pub miss_count: u64,             // Cache misses in this set
+    pub replacement_policy: ReplacementPolicy, // How to choose victim for replacement
+    pub fifo_index: usize,           // For FIFO replacement
 }
 
 impl CacheSet {
     /// Create a new cache set with given associativity and line size
-    pub fn new(associativity: usize, line_size: usize) -> Self {
+    pub fn new(associativity: usize, line_size: usize, policy: ReplacementPolicy) -> Self {
         let mut lines = Vec::with_capacity(associativity);
         for _ in 0..associativity {
             lines.push(CacheLine::new(line_size));
@@ -24,6 +27,8 @@ impl CacheSet {
             access_count: 0,
             hit_count: 0,
             miss_count: 0,
+            replacement_policy: policy,
+            fifo_index: 0,
         }
     }
     
@@ -48,7 +53,7 @@ impl CacheSet {
         (false, evicted_tag)
     }
     
-    /// Replace a line using LRU policy - returns evicted tag if any
+    /// Replace a line using the configured replacement policy
     fn replace_line(&mut self, tag: u64, timestamp: u64) -> Option<u64> {
         // First, try to find an invalid line
         for line in &mut self.lines {
@@ -58,7 +63,20 @@ impl CacheSet {
             }
         }
         
-        // All lines valid - evict LRU (least recently used)
+        // All lines valid - use replacement policy
+        let victim_idx = match self.replacement_policy {
+            ReplacementPolicy::LRU => self.find_lru_victim(),
+            ReplacementPolicy::FIFO => self.find_fifo_victim(),
+            ReplacementPolicy::Random => self.find_random_victim(),
+        };
+        
+        let evicted_tag = self.lines[victim_idx].tag;
+        self.lines[victim_idx].update(tag, timestamp);
+        Some(evicted_tag)
+    }
+    
+    /// Find LRU (Least Recently Used) victim
+    fn find_lru_victim(&self) -> usize {
         let mut lru_idx = 0;
         let mut oldest_time = self.lines[0].last_access;
         
@@ -69,9 +87,20 @@ impl CacheSet {
             }
         }
         
-        let evicted_tag = self.lines[lru_idx].tag;
-        self.lines[lru_idx].update(tag, timestamp);
-        Some(evicted_tag)
+        lru_idx
+    }
+    
+    /// Find FIFO (First In, First Out) victim
+    fn find_fifo_victim(&mut self) -> usize {
+        let victim = self.fifo_index;
+        self.fifo_index = (self.fifo_index + 1) % self.associativity;
+        victim
+    }
+    
+    /// Find random victim
+    fn find_random_victim(&self) -> usize {
+        // Simple pseudo-random based on access count
+        (self.access_count as usize) % self.associativity
     }
     
     /// Flush a specific tag from this set (for Flush+Reload attacks)
