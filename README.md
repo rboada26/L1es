@@ -33,8 +33,8 @@ A comprehensive cache simulator and timing-based side-channel attack demonstrati
 ### From Source
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/l1es
-cd l1es
+git clone https://github.com/rboada26/L1es
+cd L1es
 
 # Build and install
 cargo build --release
@@ -43,9 +43,6 @@ cargo install --path .
 # Verify installation
 l1es --version
 ```
-
-### Binary Distribution
-Download the latest release binary from [GitHub Releases](https://github.com/yourusername/l1es/releases) and place it in your PATH.
 
 ## 📖 Usage
 
@@ -197,8 +194,8 @@ simulation_id,address,access_time,cache_hit,timestamp
 ### Building from Source
 ```bash
 # Clone and build
-git clone https://github.com/yourusername/l1es
-cd l1es
+git clone https://github.com/rboada26/L1es
+cd L1es
 cargo build --release
 
 # Run tests
@@ -208,46 +205,11 @@ cargo test
 cargo doc --open
 ```
 
-### Project Structure
-```
-l1es/
-├── src/
-│   ├── main.rs              # CLI interface
-│   ├── cache.rs             # Cache implementation
-│   ├── cache_config.rs      # Configuration management
-│   ├── measurement.rs       # Data collection
-│   └── attacks/             # Attack implementations
-│       ├── prime_probe.rs
-│       ├── flush_reload.rs
-│       ├── spectre_sim.rs
-│       └── meltdown_sim.rs
-├── Cargo.toml
-└── README.md
-```
-
-## 📚 References
-
-### Academic Papers
-- [Prime+Probe: A Decade of Cache Side-Channel Attacks](https://example.com)
-- [Flush+Reload: High-Resolution Cache Attacks](https://example.com)
-- [Spectre Attacks: Exploiting Speculative Execution](https://spectreattack.com)
-- [Meltdown: Reading Kernel Memory from User Space](https://meltdownattack.com)
 
 ### Related Tools
 - [Mastik](https://cs.adelaide.edu.au/~yval/Mastik/) - Micro-architectural attack toolkit
 - [Intel Pin](https://software.intel.com/content/www/us/en/develop/articles/pin-a-dynamic-binary-instrumentation-tool.html) - Dynamic instrumentation
 - [Cachegrind](https://valgrind.org/docs/manual/cg-manual.html) - Cache profiling
-
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Areas for Contribution
-- Additional cache architectures
-- New attack implementations
-- Performance optimizations
-- Documentation improvements
-- Test coverage expansion
 
 ## 📄 License
 
@@ -257,11 +219,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This tool is designed for educational and research purposes only. Users are responsible for ensuring ethical and legal use of this software. The authors are not responsible for any misuse or damage caused by this tool.
 
-## 🙋 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/l1es/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/l1es/discussions)
-- **Email**: your.email@example.com
 
 ## 🎯 Roadmap
 
@@ -272,6 +229,3 @@ This tool is designed for educational and research purposes only. Users are resp
 - [ ] ARM architecture support
 - [ ] Cross-core attack simulation
 
----
-
-**Made with ❤️ for the security research community**
