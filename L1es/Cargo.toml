@@ -4,9 +4,19 @@ version = "0.1.0"
 edition = "2024"
 description = "Cache simulator and timing-based side-channel attack demonstration"
 authors = ["Robert Boada rnb2135@columbia.edu"]
+license = "MIT"
+repository = "https://github.com/yourusername/l1es"
+readme = "README.md"
+keywords = ["cache", "security", "side-channel", "simulation", "timing"]
+categories = ["command-line-utilities", "simulation", "development-tools"]
+
+[lints.rust]
+unused_imports = "allow"
+unused_variables = "allow"
+dead_code = "allow"
 
 [[bin]]
-name = "L1es"
+name = "l1es"
 path = "src/main.rs"
 
 [dependencies]
