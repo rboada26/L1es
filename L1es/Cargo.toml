@@ -2,5 +2,16 @@
 name = "L1es"
 version = "0.1.0"
 edition = "2024"
+description = "Cache simulator and timing-based side-channel attack demonstration"
+authors = ["Robert Boada rnb2135@columbia.edu"]
+
+[[bin]]
+name = "L1es"
+path = "src/main.rs"
 
 [dependencies]
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+csv = "1.1"
+chrono = { version = "0.4", features = ["serde"] }
