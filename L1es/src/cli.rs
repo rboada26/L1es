@@ -1,10 +1,8 @@
-// src/cli.rs
-
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "cache-sim")]
+#[command(name = "l1es")]
 #[command(about = "Cache simulator and timing-based side-channel attack demonstration")]
 #[command(version = "0.1.0")]
 pub struct Cli {
