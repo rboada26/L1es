@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "simulation", "development-tools"]
 unused_imports = "allow"
 unused_variables = "allow"
 dead_code = "allow"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)', 'cfg(kani)'] }
 
 [package.metadata.verus]
 verify = true
