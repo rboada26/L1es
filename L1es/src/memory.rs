@@ -1,23 +1,38 @@
 // src/memory.rs
 
+use vstd::prelude::*;
+
 use std::collections::HashMap;
 
 /// Default main-memory access latency in cycles (matches the old hard-coded miss cost).
 pub const DEFAULT_MEMORY_LATENCY: u64 = 100;
 
-/// Sparse, line-granular backing memory.
-///
-/// Only lines that have been written are stored; every other address reads as zero.
-/// All addresses passed to `read_line` / `write_line` must be line-aligned.
-pub struct Memory {
-    lines: HashMap<u64, Vec<u8>>, // key = line-aligned base address
-    line_size: usize,
-    pub latency: u64,             // cycles per line transfer
-    pub reads: u64,               // line reads (cache fills)
-    pub writes: u64,              // line writes (write-backs)
-}
+
+verus! {
+    /// Sparse, line-granular backing memory.
+    ///
+    /// Only lines that have been written are stored; every other address reads as zero.
+    /// All addresses passed to `read_line` / `write_line` must be line-aligned.
+    pub struct Memory {
+        lines: HashMap<u64, Vec<u8>>, // key = line-aligned base address
+        line_size: usize,
+        pub latency: u64,             // cycles per line transfer
+        pub reads: u64,               // line reads (cache fills)
+        pub writes: u64,              // line writes (write-backs)
+    }
+
+
+    impl Memory {
+        spec fn valid(m: &Memory) -> bool {
+            forall|a: u64| {
+                m.lines@.contains_key(a) ==> m.lines@[a].len() == m.line_size
+            }
+        }
+    }
+} 
 
 impl Memory {
+
     pub fn new(line_size: usize) -> Self {
         Self::with_latency(line_size, DEFAULT_MEMORY_LATENCY)
     }
@@ -77,7 +92,6 @@ impl Memory {
             .map_or(0, |line| line[(addr - base) as usize])
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -110,3 +124,5 @@ mod tests {
         assert_eq!((m.reads, m.writes), (1, 1));
     }
 }
+
+

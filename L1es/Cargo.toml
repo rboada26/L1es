@@ -14,6 +14,11 @@ categories = ["command-line-utilities", "simulation", "development-tools"]
 unused_imports = "allow"
 unused_variables = "allow"
 dead_code = "allow"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)'] }
+
+[package.metadata.verus]
+verify = true
+
 
 [[bin]]
 name = "l1es"
@@ -25,3 +30,4 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 csv = "1.1"
 chrono = { version = "0.4", features = ["serde"] }
+vstd = "0.0.0-2026-11-22-0344"
