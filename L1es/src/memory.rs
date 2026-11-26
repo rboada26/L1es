@@ -9,6 +9,13 @@ use std::collections::HashMap;
 
 verus! {
 
+    #[cfg(verus_keep_ghost)]
+    use vstd::arithmetic::power2::{pow2, lemma_pow2_pos, lemma_pow2_strictly_increases, lemma2_to64};
+    #[cfg(verus_keep_ghost)]
+    use vstd::bits::{low_bits_mask, lemma_u64_low_bits_mask_is_mod};
+    #[cfg(verus_keep_ghost)]
+    use vstd::arithmetic::div_mod::{lemma_mod_mod};
+
     pub const DEFAULT_MEMORY_LATENCY: u64 = 100;
 
     /// Sparse, line-granular backing memory.
@@ -16,21 +23,14 @@ verus! {
     /// Only lines that have been written are stored; every other address reads as zero.
     /// All addresses passed to `read_line` / `write_line` must be line-aligned.
     pub struct Memory {
-        lines: HashMap<u64, Vec<u8>>, // key = line-aligned base address
-        line_size: usize,
+        pub lines: HashMap<u64, Vec<u8>>, // key = line-aligned base address
+        pub line_size: usize,
         pub latency: u64,             // cycles per line transfer
         pub reads: u64,               // line reads (cache fills)
         pub writes: u64,              // line writes (write-backs)
     }
 
 
-    pub open spec fn pow2(k: nat) -> int 
-        decreases k 
-    {
-        if k == 0 { 1 } else {
-            2 * pow2((k - 1) as nat)
-        }
-    }
     pub open spec fn is_pow2(x: usize) -> bool {
         exists|k: nat| #[trigger] pow2(k) == x as int
     }
@@ -39,14 +39,17 @@ verus! {
     ensures
         b <==> is_pow2(x);
 
+
     impl Memory {
-        pub closed spec fn valid(&self) -> bool {
-            is_pow2(self.line_size) 
+        pub open spec fn valid(&self) -> bool {
+            is_pow2(self.line_size)
+            && vstd::std_specs::hash::hash_map_inv(&self.lines) // needed for HashMap::get's spec
             && forall|a: u64| {
                 #[trigger] self.lines@.contains_key(a) ==> self.lines@[a].len() == self.line_size
             }
         }
 
+        
         pub fn with_latency(line_size: usize, latency: u64) -> (result: Self)
             requires is_pow2(line_size), 
             ensures result.valid() 
@@ -68,25 +71,68 @@ verus! {
             Self::with_latency(line_size, DEFAULT_MEMORY_LATENCY)
         }
 
+
+
+        /// Line-aligned base address containing `addr`.
+        pub fn line_base(&self, addr: u64) -> (res: u64)
+            requires self.valid(),
+            ensures res % (self.line_size as u64) == 0
+            && res == addr - addr % (self.line_size as u64)
+        {
+            proof {
+                let k = choose|k: nat| pow2(k) == self.line_size as int;
+                lemma_pow2_pos(k);
+                if k >= 64 {                            // pow2(k) would exceed usize::MAX
+                    lemma2_to64();
+                    if k > 64 { lemma_pow2_strictly_increases(64, k); }
+                    assert(false);
+                }
+                let mask = (self.line_size - 1) as u64; 
+                let res = addr & !mask;
+                assert(low_bits_mask(k) == mask);       // low_bits_mask(k) == pow2(k) - 1 == mask holds from the choice of k 
+                lemma_u64_low_bits_mask_is_mod(res, k); // res & mask == res & low_bits_mask(k) == res % pow2(k) == res % self.line_size
+                lemma_u64_low_bits_mask_is_mod(addr, k); // addr & mask == addr % self.line_size
+                assert(res & mask == 0  
+                    && res + (addr & mask) == addr
+                ) by (bit_vector) // res & mask == addr & !mask & mask == addr & 0 == 0
+                    requires res == addr & !mask;
+
+            }
+            addr & !(self.line_size as u64 - 1)
+        }
+
+        pub fn read_line(&mut self, base: u64) -> (res: Vec<u8>)
+            requires self.valid() 
+                && base % (self.line_size as u64) == 0 
+                && self.reads < u64::MAX, 
+            ensures final(self).valid()
+                && final(self).line_size == old(self).line_size
+                && res.len() == final(self).line_size  
+
+        {
+            proof {
+                let n = self.line_size as u64;
+                let k = choose|k: nat| pow2(k) == self.line_size as int;
+                lemma_pow2_pos(k);
+                lemma_mod_mod(base as int, n as int, 1 as int);
+                assert(base % n == 0 && (base % n) % n == 0);
+            }
+            debug_assert_eq!(base, self.line_base(base), "unaligned line read");
+            self.reads += 1;
+            match self.lines.get(&base) {
+                Some(line) => {
+                    // get's spec: line@ == self.lines@[base]; valid() then gives the length
+                    assert(self.lines@.contains_key(base));
+                    line.clone()
+                }
+                None => vec![0; self.line_size],
+            }
+        }
+
     }
 } 
 
 impl Memory {
-
-      /// Line-aligned base address containing `addr`.
-    pub fn line_base(&self, addr: u64) -> u64 {
-        addr & !(self.line_size as u64 - 1)
-    }
-
-    /// Read a full line (counted as a memory access).
-    pub fn read_line(&mut self, base: u64) -> Vec<u8> {
-        debug_assert_eq!(base, self.line_base(base), "unaligned line read");
-        self.reads += 1;
-        self.lines
-            .get(&base)
-            .cloned()
-            .unwrap_or_else(|| vec![0; self.line_size])
-    }
 
     /// Write a full line (counted as a memory access).
     pub fn write_line(&mut self, base: u64, data: &[u8]) {
