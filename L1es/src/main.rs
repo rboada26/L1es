@@ -1,6 +1,7 @@
 // src/main.rs
 
 mod line;
+mod memory;
 mod set;
 mod cache;
 mod cache_config;
@@ -17,6 +18,7 @@ pub mod attacks {
     pub mod flush_reload;
     pub mod spectre_sim;
     pub mod meltdown_sim;
+    pub mod covert_channel;
 }
 
 fn main() {
@@ -214,18 +216,18 @@ fn run_attacks(
         },
         cli::AttackCommands::Spectre { secret } => {
             println!("Running Spectre attack with secret: '{}'", secret);
-            attacks::spectre_sim::demo_spectre_attack();
+            attacks::spectre_sim::demo_spectre_attack(secret);
         },
         cli::AttackCommands::Meltdown { kernel_data } => {
             println!("Running Meltdown attack extracting: '{}'", kernel_data);
-            attacks::meltdown_sim::demo_meltdown_attack();
+            attacks::meltdown_sim::demo_meltdown_attack(kernel_data);
         },
         cli::AttackCommands::All => {
             println!("Running all attack demonstrations...");
             attacks::prime_probe::demo_prime_probe();
             attacks::flush_reload::demo_flush_reload();
-            attacks::spectre_sim::demo_spectre_attack();
-            attacks::meltdown_sim::demo_meltdown_attack();
+            attacks::spectre_sim::demo_spectre_attack("SECRET_DATA");
+            attacks::meltdown_sim::demo_meltdown_attack("KERNEL_SECRET");
         },
     }
 }

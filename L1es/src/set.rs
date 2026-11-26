@@ -32,47 +32,40 @@ impl CacheSet {
         }
     }
     
-    /// Access this set with the given tag - returns (hit, evicted_tag)
-    /// hit = true if cache hit, false if miss
-    /// evicted_tag = Some(tag) if an existing line was evicted, None otherwise
-    pub fn access(&mut self, tag: u64, timestamp: u64) -> (bool, Option<u64>) {
+    /// Look up `tag` as a counted access. Returns Some(way) on a hit (and
+    /// touches the line), or None on a miss. On a miss the caller must pick a
+    /// victim with `choose_victim` and fill it.
+    pub fn lookup(&mut self, tag: u64, timestamp: u64) -> Option<usize> {
         self.access_count += 1;
-        
-        // Check for cache hit
-        for line in &mut self.lines {
-            if line.is_hit(tag) {
-                line.update(tag, timestamp);
-                self.hit_count += 1;
-                return (true, None);
-            }
+
+        if let Some(way) = self.find(tag) {
+            self.lines[way].touch(timestamp);
+            self.hit_count += 1;
+            return Some(way);
         }
-        
-        // Cache miss - need to find a line to replace
+
         self.miss_count += 1;
-        let evicted_tag = self.replace_line(tag, timestamp);
-        (false, evicted_tag)
+        None
     }
-    
-    /// Replace a line using the configured replacement policy
-    fn replace_line(&mut self, tag: u64, timestamp: u64) -> Option<u64> {
-        // First, try to find an invalid line
-        for line in &mut self.lines {
-            if !line.valid {
-                line.update(tag, timestamp);
-                return None;
-            }
+
+    /// Find the way holding `tag` without affecting statistics or LRU state.
+    pub fn find(&self, tag: u64) -> Option<usize> {
+        self.lines.iter().position(|line| line.is_hit(tag))
+    }
+
+    /// Choose the way to fill on a miss: an invalid line if there is one,
+    /// otherwise a victim chosen by the replacement policy. Does not modify
+    /// the victim; the caller writes it back (if dirty) and refills it.
+    pub fn choose_victim(&mut self) -> usize {
+        if let Some(way) = self.lines.iter().position(|line| !line.valid) {
+            return way;
         }
-        
-        // All lines valid - use replacement policy
-        let victim_idx = match self.replacement_policy {
+
+        match self.replacement_policy {
             ReplacementPolicy::LRU => self.find_lru_victim(),
             ReplacementPolicy::FIFO => self.find_fifo_victim(),
             ReplacementPolicy::Random => self.find_random_victim(),
-        };
-        
-        let evicted_tag = self.lines[victim_idx].tag;
-        self.lines[victim_idx].update(tag, timestamp);
-        Some(evicted_tag)
+        }
     }
     
     /// Find LRU (Least Recently Used) victim
@@ -101,17 +94,6 @@ impl CacheSet {
     fn find_random_victim(&self) -> usize {
         // Simple pseudo-random based on access count
         (self.access_count as usize) % self.associativity
-    }
-    
-    /// Flush a specific tag from this set (for Flush+Reload attacks)
-    pub fn flush(&mut self, tag: u64) -> bool {
-        for line in &mut self.lines {
-            if line.is_hit(tag) {
-                line.invalidate();
-                return true;
-            }
-        }
-        false
     }
     
     /// Get hit rate for this set

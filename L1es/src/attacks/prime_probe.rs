@@ -29,8 +29,9 @@ impl PrimeProbeAttack {
         let mut eviction_set = Vec::new();
         let set_stride = 1 << (cache.offset_bits + cache.index_bits);
 
-        // gen enough addr to fill target set + some extra 
-        for i in 0..(cache.associativity + 2) {
+        // exactly one address per way: more would evict our own lines and
+        // look like victim activity even when the victim is idle
+        for i in 0..cache.associativity {
 
              // Address formula: (i * set_stride) + (target_set << offset_bits)
 
@@ -47,7 +48,7 @@ impl PrimeProbeAttack {
     pub fn prime(&self, cache: &mut Cache){
 
         for &addr in &self.eviction_set {
-            cache.access(addr);
+            cache.read(addr);
         }
     }
 
@@ -59,7 +60,7 @@ impl PrimeProbeAttack {
 
         for &addr in &self.eviction_set {
 
-            let (_hit, time) = cache.access(addr);
+            let (_value, time) = cache.read(addr);
             self.probe_times.push(time);
             total_time += time;
         }
@@ -76,9 +77,10 @@ impl PrimeProbeAttack {
 
         let victim_addr = ((target_set as u64) << cache.offset_bits) + 0x12345000;
 
-        cache.access(victim_addr);
+        let (value, _) = cache.read(victim_addr);
 
-        println!("Victim accessed addres: 0x{:x} (maps to set {})", victim_addr, target_set);
+        println!("Victim read 0x{:02x} from address 0x{:x} (maps to set {})",
+            value, victim_addr, target_set);
     }
 }
 
@@ -91,6 +93,12 @@ pub fn demo_prime_probe(){
     // Create cache: 8 sets, 4-way associative, 64-byte lines
     let mut cache = Cache::new(8, 4, 64);
     let target_set = 3; // Monitor cache set 3
+
+    // victim's private data, in simulated memory
+    for set in 0..cache.num_sets {
+        let addr = ((set as u64) << cache.offset_bits) + 0x12345000;
+        cache.preload(addr, &[0x50 + set as u8]);
+    }
     
     println!("Cache: {} sets, {}-way associative", cache.num_sets, cache.associativity);
     println!("Monitoring cache set {}", target_set);
@@ -129,4 +137,34 @@ pub fn demo_prime_probe(){
         println!("SUCCESS: Prime+Probe detected victim memory access!");
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn detects(victim_set: Option<usize>) -> bool {
+        let mut cache = Cache::new(8, 4, 64);
+        let mut attack = PrimeProbeAttack::new(&cache, 3);
+        attack.prime(&mut cache);
+        if let Some(set) = victim_set {
+            PrimeProbeAttack::simulate_victim_access(&mut cache, set);
+        }
+        attack.probe(&mut cache)
+    }
+
+    #[test]
+    fn idle_victim_is_not_detected() {
+        assert!(!detects(None));
+    }
+
+    #[test]
+    fn victim_in_other_set_is_not_detected() {
+        assert!(!detects(Some(5)));
+    }
+
+    #[test]
+    fn victim_in_monitored_set_is_detected() {
+        assert!(detects(Some(3)));
+    }
 }
