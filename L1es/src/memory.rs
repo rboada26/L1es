@@ -5,10 +5,12 @@ use vstd::prelude::*;
 use std::collections::HashMap;
 
 /// Default main-memory access latency in cycles (matches the old hard-coded miss cost).
-pub const DEFAULT_MEMORY_LATENCY: u64 = 100;
 
 
 verus! {
+
+    pub const DEFAULT_MEMORY_LATENCY: u64 = 100;
+
     /// Sparse, line-granular backing memory.
     ///
     /// Only lines that have been written are stored; every other address reads as zero.
@@ -22,33 +24,56 @@ verus! {
     }
 
 
+    pub open spec fn pow2(k: nat) -> int 
+        decreases k 
+    {
+        if k == 0 { 1 } else {
+            2 * pow2((k - 1) as nat)
+        }
+    }
+    pub open spec fn is_pow2(x: usize) -> bool {
+        exists|k: nat| #[trigger] pow2(k) == x as int
+    }
+
+    pub assume_specification[ usize::is_power_of_two ](x: usize) -> (b: bool)
+    ensures
+        b <==> is_pow2(x);
+
     impl Memory {
-        spec fn valid(m: &Memory) -> bool {
-            forall|a: u64| {
-                m.lines@.contains_key(a) ==> m.lines@[a].len() == m.line_size
+        pub closed spec fn valid(&self) -> bool {
+            is_pow2(self.line_size) 
+            && forall|a: u64| {
+                #[trigger] self.lines@.contains_key(a) ==> self.lines@[a].len() == self.line_size
             }
         }
+
+        pub fn with_latency(line_size: usize, latency: u64) -> (result: Self)
+            requires is_pow2(line_size), 
+            ensures result.valid() 
+        {
+            assert!(line_size.is_power_of_two(), "line size must be a power of two");
+            Memory {
+                lines: HashMap::new(),
+                line_size,
+                latency,
+                reads: 0,
+                writes: 0,
+            }
+        }
+
+        pub fn new(line_size: usize) -> (result: Self)
+            requires is_pow2(line_size),
+            ensures result.valid()
+        {
+            Self::with_latency(line_size, DEFAULT_MEMORY_LATENCY)
+        }
+
     }
 } 
 
 impl Memory {
 
-    pub fn new(line_size: usize) -> Self {
-        Self::with_latency(line_size, DEFAULT_MEMORY_LATENCY)
-    }
-
-    pub fn with_latency(line_size: usize, latency: u64) -> Self {
-        assert!(line_size.is_power_of_two(), "line size must be a power of two");
-        Memory {
-            lines: HashMap::new(),
-            line_size,
-            latency,
-            reads: 0,
-            writes: 0,
-        }
-    }
-
-    /// Line-aligned base address containing `addr`.
+      /// Line-aligned base address containing `addr`.
     pub fn line_base(&self, addr: u64) -> u64 {
         addr & !(self.line_size as u64 - 1)
     }
