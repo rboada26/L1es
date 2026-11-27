@@ -1,9 +1,12 @@
 // src/cache.rs
 
+use vstd::prelude::*;
 use crate::set::CacheSet;
 use crate::cache_config::{CacheConfig, CacheType};
 use crate::memory::Memory;
 
+
+verus! {
 /// Cycles for a cache hit.
 pub const HIT_LATENCY: u64 = 1;
 
@@ -18,6 +21,39 @@ pub struct Cache {
     pub timestamp: u64,              // Global timestamp for LRU
     pub memory: Memory,              // Backing main memory
     pub writebacks: u64,             // Dirty lines written back to memory
+}
+
+impl Cache {
+
+    /// Rebuild a line's base address from its tag and set index.
+    pub open spec fn spec_line_address(&self, tag: u64, index: usize) -> u64 {
+        (tag << (self.offset_bits + self.index_bits)) | ((index as u64) << self.offset_bits)
+    }
+
+    /// Rebuild a line's base address from its tag and set index.
+    #[verifier::when_used_as_spec(spec_line_address)]
+    pub fn line_address(&self, tag: u64, index: usize) -> u64 
+        requires self.offset_bits + self.index_bits < 64,   // both shifts stay below the u64 width
+        returns self.spec_line_address(tag, index)
+    {
+        (tag << (self.offset_bits + self.index_bits)) | ((index as u64) << self.offset_bits)
+    }
+
+    pub open spec fn valid(&self) -> bool {
+        &&& self.offset_bits + self.index_bits < 64
+        &&& forall |i: int| 
+            0 <= i < self.sets.len()
+            ==> #[trigger] self.sets[i].valid() && #[trigger] self.sets[i].line_size == self.line_size 
+        &&& self.memory.line_size == self.line_size 
+        &&& forall |index: usize, tag: u64, way: int| 
+            0 <= index < self.sets.len() 
+            ==> 0 <= way < self.sets[index as int].lines.len() 
+            ==> self.sets[index as int].lines[way].is_hit(tag)
+            ==> !self.sets[index as int].lines[way].dirty
+            ==> self.memory@[self.line_address(tag, index)] == self.sets[index as int].lines[way].data@
+    }
+}
+
 }
 
 impl Cache {
@@ -120,10 +156,10 @@ impl Cache {
         true
     }
 
-    /// Rebuild a line's base address from its tag and set index.
-    fn line_address(&self, tag: u64, index: usize) -> u64 {
-        (tag << (self.offset_bits + self.index_bits)) | ((index as u64) << self.offset_bits)
-    }
+    // /// Rebuild a line's base address from its tag and set index.
+    // fn line_address(&self, tag: u64, index: usize) -> u64 {
+    //     (tag << (self.offset_bits + self.index_bits)) | ((index as u64) << self.offset_bits)
+    // }
     
     /// Decompose address into (tag, index, offset)
     fn decompose_address(&self, address: u64) -> (u64, usize, usize) {

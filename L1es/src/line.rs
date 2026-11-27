@@ -16,20 +16,23 @@ pub struct CacheLine {
 
 impl CacheLine {
 
+
+    pub open spec fn new_cache_line(&self, line_size: usize) -> bool {
+        &&& self == CacheLine {
+            valid: false, 
+            dirty: false, 
+            tag: 0,
+            last_access: 0, 
+            access_count: 0, 
+            data: self.data, 
+        }
+        &&& forall|i: int| 0 <= i < self.data.len() ==> (self.data@[i] == 0)
+        &&& self.data.len() == line_size as int
+    }
+
     /// Create a new empty cache line
     pub fn new(line_size: usize) -> (res: Self)
-        ensures {
-            &&& res == CacheLine {
-                valid: false, 
-                dirty: false, 
-                tag: 0,
-                last_access: 0, 
-                access_count: 0, 
-                data: res.data, 
-            }
-            &&& forall|i: int| 0 <= i < res.data.len() ==> (res.data@[i] == 0)
-            &&& res.data.len() == line_size as int
-        },
+        ensures res.new_cache_line(line_size),
     {
         CacheLine {
             valid: false,
@@ -41,9 +44,16 @@ impl CacheLine {
         }
     }
 
+    /// Spec version of `is_hit`; spec code that calls `is_hit` uses this instead.
+    pub open spec fn spec_is_hit(&self, tag: u64) -> bool {
+        self.valid && self.tag == tag
+    }
+
     /// Check if this line contains the given tag (cache hit)
-    /// 
-    pub fn is_hit(&self, tag: u64) -> bool {
+    #[verifier::when_used_as_spec(spec_is_hit)]
+    pub fn is_hit(&self, tag: u64) -> (res: bool)
+        returns self.spec_is_hit(tag),
+    {
         self.valid && self.tag == tag
     }
 

@@ -1,9 +1,15 @@
+use vstd::prelude::*;
+
+
+verus! {
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CacheType {
     DirectMapped,
     SetAssociative(usize),
     FullyAssociative,
 }
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReplacementPolicy {
@@ -12,6 +18,7 @@ pub enum ReplacementPolicy {
     Random,
 }
 
+
 #[derive(Debug, Clone)]
 pub struct CacheConfig {
     pub cache_type: CacheType,
@@ -19,6 +26,8 @@ pub struct CacheConfig {
     pub line_size: usize,
     pub replacement_policy: ReplacementPolicy,
     pub name: String,
+}
+
 }
 
 impl CacheConfig {
