@@ -1,4 +1,5 @@
 // src/main.rs
+#![cfg_attr(verus_keep_ghost, feature(allocator_ext))] // Entry<_, _, A> in the or_insert_with assume_specification
 
 mod line;
 mod memory;
